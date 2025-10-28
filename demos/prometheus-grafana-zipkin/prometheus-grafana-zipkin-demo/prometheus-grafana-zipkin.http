@@ -1,0 +1,64 @@
+### Observability demo - HTTP requests for Prometheus/Grafana/Zipkin sample
+# Purpose: Use these requests to manually exercise the demo application and
+# generate traffic/metrics/traces that show up in Prometheus, Grafana, and Zipkin.
+# How to use:
+# - Start the Spring Boot app on port 8080 (e.g., mvn spring-boot:run or run the JAR)
+# - In JetBrains HTTP Client, place the caret on a request and press Ctrl+Enter to send
+# - Watch metrics in Prometheus/Grafana and traces in Zipkin while invoking endpoints
+#
+# Notes:
+# - Endpoints under /api/v1/metrics are designed to emit Micrometer metrics (counters/timers)
+# - Some calls are intentionally lightweight; send them repeatedly to see charts move
+# - If you run the provided docker-compose stack, ensure ports are not conflicting
+
+@host = localhost
+@port = 8080
+@baseUrl = http://{{host}}:{{port}}
+
+
+### 💱 List currencies
+# What: Returns an example list of currencies (sample business/data endpoint)
+# Why: Quick sanity check that the app responds and JSON is returned
+# Expected: 200 OK, JSON payload
+GET {{baseUrl}}/api/v1/tracing/currencies
+Accept: application/json
+
+
+### 🔁 Echo
+# What: Simple echo/health-style endpoint
+# Why: Useful for a very fast response to verify connectivity
+# Expected: 200 OK, small text/JSON
+GET {{baseUrl}}/api/v1/tracing/echo
+Accept: */*
+
+### 🍺 Simulate business action: order beer
+# What: Invokes code that records custom Micrometer metrics
+# Why: Good for creating visible counter/timer activity in Prometheus/Grafana
+# Tips:
+# - Send this multiple times to see counters increase
+# - Combine with a short delay or a loop to generate a time series
+# Expected: 200 OK
+GET {{baseUrl}}/api/v1/metrics/orderBeer
+Accept: */*
+
+
+### 📈 Count calls via AOP (Counter)
+# What: Endpoint instrumented by an aspect to increment a counter
+# Why: Demonstrates cross-cutting metrics collection without touching business code
+# Expected: 200 OK; Prometheus counter should increase after each call
+GET {{baseUrl}}/api/v1/metrics/countsCallsAspect
+Accept: */*
+
+
+### ⏱️ Measure time via AOP (Timer)
+# What: Endpoint instrumented by an aspect to measure duration
+# Why: Demonstrates timing metrics that show up as a Prometheus timer/histogram
+# Expected: 200 OK; Prometheus timer/summary should observe request duration
+GET {{baseUrl}}/api/v1/metrics/takesTimeAspect
+Accept: */*
+
+
+### 🧪 Tips
+# - To quickly generate load, re-run a request using the "Repeat: N" gutter action (IDE) or send in bursts
+# - Open Prometheus to query metrics (e.g., http://localhost:9090) and Grafana dashboards if running the stack
+# - Open Zipkin (e.g., http://localhost:9411) to inspect traces if tracing is enabled in the app

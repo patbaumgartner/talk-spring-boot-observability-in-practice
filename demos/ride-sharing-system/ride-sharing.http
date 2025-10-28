@@ -1,0 +1,79 @@
+### Ride-sharing system - HTTP requests to exercise Booking API
+# Purpose: Use these requests to create bookings and generate traffic for demos.
+# How to use:
+# - Start the Ride-sharing Booking service on port 8080 (or adjust the port variable below)
+# - In JetBrains HTTP Client, place the caret on a request and press Ctrl+Enter
+# - Repeat requests to simulate load and observe metrics/traces/dashboards
+# Notes:
+# - This file intentionally varies pickup locations and rider names
+# - Expected statuses may differ (201 vs 200) based on implementation
+# - If running via docker-compose, ensure port mappings align with the configured port
+
+@host = localhost
+@port = 8080
+@baseUrl = http://{{host}}:{{port}}
+
+
+### 🚗 Create a booking - Downtown to Airport
+# What: Rider Alice requests a pickup in downtown Zurich to go to the airport
+# Why: Basic happy-path booking to validate the service
+# Expected: 201 Created (or 200 OK) with booking details
+POST {{baseUrl}}/api/bookings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pickupLat": 47.3769,
+  "pickupLon": 8.5417,
+  "riderName": "Alice Downtown"
+}
+
+
+### 🚕 Create a booking - Late-night pickup
+# What: Bob requests a ride from Zurich West area at midnight
+# Why: Another happy-path scenario to create additional traffic
+# Expected: 201 Created (or 200 OK)
+POST {{baseUrl}}/api/bookings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pickupLat": 47.3910,
+  "pickupLon": 8.5050,
+  "riderName": "Bob Night"
+}
+
+
+### 🚙 Create a booking - Suburban pickup
+# What: Carol requests a pickup from a residential area in Dübendorf
+# Why: Adds diversity to sample data points
+# Expected: 201 Created (or 200 OK)
+POST {{baseUrl}}/api/bookings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pickupLat": 47.3984,
+  "pickupLon": 8.6180,
+  "riderName": "Carol Suburban"
+}
+
+
+### 🚕 Create a booking - Missing rider name
+# What: Test validation when riderName is omitted
+# Why: Verify request validation and error handling for required fields
+# Expected: 400 Bad Request if riderName is required; otherwise 201/200 if optional
+POST {{baseUrl}}/api/bookings
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pickupLat": 47.3700,
+  "pickupLon": 8.5450
+}
+
+
+### 🧪 Tips
+# - To quickly generate load, re-send a request multiple times (IDE gutter: "Repeat: N")
+# - If observability is configured, watch Prometheus/Grafana/Tempo while invoking requests
+# - Adjust the port variable if the service isn't running on 8080

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <jmxConfigurator/>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+    <!-- Needs logback-spring.xml to resolve -->
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="app"/>
+
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <labels>
+            app=${appName}
+            host=${HOSTNAME}
+            level=%level
+        </labels>
+        <message>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </message>
+        <http>
+            <url>http://localhost:3100/loki/api/v1/push</url>
+        </http>
+        <!-- optional but recommended -->
+        <batch>
+            <timeoutMs>10000</timeoutMs>
+        </batch>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="LOKI"/>
+    </root>
+</configuration>

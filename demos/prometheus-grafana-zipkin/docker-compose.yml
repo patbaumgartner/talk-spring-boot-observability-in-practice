@@ -1,0 +1,35 @@
+services:
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:12.2.1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./workspace/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./workspace/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./workspace/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v3.7.3
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:${WSL_IP}"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./workspace/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin:3.5.1
+    environment:
+      - STORAGE_TYPE=mem
+    ports:
+      - 9411:9411

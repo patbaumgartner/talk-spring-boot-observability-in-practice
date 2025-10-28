@@ -1,0 +1,111 @@
+x-logging: &default-logging
+  driver: loki
+  options:
+    loki-url: 'http://localhost:3100/api/prom/push'
+    loki-pipeline-stages: |
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<date>\d{4}-\d{2}-\d{2})T(?P<time>\d{2}:\d{2}:\d{2}.\d{3}) (?P<message>(?s:.*))$$'
+
+services:
+  loki:
+    container_name: loki
+    image: grafana/loki:3.5.7
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v3.7.3
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:${WSL_IP}"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./workspace/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - loki
+    logging: *default-logging
+
+  tempo:
+    container_name: tempo
+    image: grafana/tempo:2.9.0
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "3200:3200" # Tempo HTTP server (for querying)
+    command: [ "-config.file=/etc/tempo.yml", "--target=all", "--storage.trace.backend=local", "--storage.trace.local.path=/var/tempo", "--auth.enabled=false" ]
+    volumes:
+      - ./workspace/tempo/tempo.yml:/etc/tempo.yml:ro
+    depends_on:
+      - loki
+    logging: *default-logging
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3200/ready >/dev/null" ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:12.2.1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./workspace/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./workspace/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./workspace/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+    logging: *default-logging
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null" ]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+  postgres:
+    container_name: postgres
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - 'POSTGRES_DB=postgres'
+      - 'POSTGRES_PASSWORD=postgres'
+      - 'POSTGRES_USER=postgres'
+    logging: *default-logging
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  pgweb:
+    container_name: pgweb
+    image: sosedoff/pgweb:latest
+    ports:
+      - '9081:8081'
+    environment:
+      PGWEB_DATABASE_URL: "postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
